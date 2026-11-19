@@ -1,6 +1,10 @@
 name: Kernel Build Workflow
 
 on:
+  push:
+    branches: [ ccr-48d3cc47-snwzwj ]
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
     inputs:
       model:
