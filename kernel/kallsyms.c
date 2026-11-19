@@ -25,6 +25,9 @@
 #include <linux/slab.h>
 #include <linux/filter.h>
 #include <linux/compiler.h>
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+#include <linux/susfs_def.h>
+#endif // #ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
 #if defined(CONFIG_SEC_DEBUG)
 #include <linux/sec_debug.h>
 #endif
@@ -689,8 +692,52 @@ static int s_show(struct seq_file *m, void *p)
 		seq_printf(m, "%pK %c %s\t[%s]\n", (void *)iter->value,
 			   type, iter->name, iter->module_name);
 	} else
+
+#ifndef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
 		seq_printf(m, "%pK %c %s\n", (void *)iter->value,
 			   iter->type, iter->name);
+#else
+	{
+		if (susfs_starts_with(iter->name, "ksu_") ||
+			susfs_starts_with(iter->name, "__ksu_") ||
+			susfs_starts_with(iter->name, "susfs_") ||
+			susfs_starts_with(iter->name, "ksud") ||
+			susfs_starts_with(iter->name, "is_ksu_") ||
+			susfs_starts_with(iter->name, "is_manager_") ||
+			susfs_starts_with(iter->name, "escape_to_") ||
+			susfs_starts_with(iter->name, "setup_selinux") ||
+			susfs_starts_with(iter->name, "selinux_query_filter") ||
+			susfs_starts_with(iter->name, "track_throne") ||
+			susfs_starts_with(iter->name, "on_post_fs_data") ||
+			susfs_starts_with(iter->name, "try_umount") ||
+			susfs_starts_with(iter->name, "kernelsu") ||
+			susfs_starts_with(iter->name, "__initcall__kmod_kernelsu") ||
+			susfs_starts_with(iter->name, "apply_kernelsu") ||
+			susfs_starts_with(iter->name, "handle_sepolicy") ||
+			susfs_starts_with(iter->name, "getenforce") ||
+			susfs_starts_with(iter->name, "setenforce") ||
+			susfs_starts_with(iter->name, "is_zygote") ||
+			/*
+			 * Not every KernelSU symbol carries a ksu_/susfs_ prefix. Without
+			 * the substring tests below, /proc/kallsyms still exposed
+			 * setup_ksu_cred, setup_ksu_cred_session_keyring,
+			 * setup_ksu_cred_selinux, is_task_ksu_domain, anon_ksu_ioctl,
+			 * anon_ksu_release, anon_ksu_fops, do_ksu_load_allow_list and
+			 * check_nnp_nosuid.ksu_sid on a running device, which is enough
+			 * for a detector to grep "ksu".
+			 */
+			susfs_contains(iter->name, "_ksu_") ||
+			susfs_contains(iter->name, ".ksu_") ||
+			susfs_contains(iter->name, "susfs") ||
+			susfs_contains(iter->name, "kernelsu") ||
+			susfs_contains(iter->name, "ksud"))
+		{
+			return 0;
+		}
+		seq_printf(m, "%pK %c %s\n", (void *)iter->value,
+			   iter->type, iter->name);
+	}
+#endif
 	return 0;
 }
 
