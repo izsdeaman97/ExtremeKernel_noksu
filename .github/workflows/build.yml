@@ -24,6 +24,14 @@ on:
         required: false
         default: true
         type: boolean
+      toolchain:
+        description: "aosp = clang-r383902 + GCC 4.9 (SM-A226B), neutron = Neutron clang 18 (original)"
+        required: false
+        default: "aosp"
+        type: choice
+        options:
+        - aosp
+        - neutron
 
 jobs:
   setup:
@@ -44,6 +52,8 @@ jobs:
   build:
     needs: setup
     runs-on: ubuntu-latest
+    env:
+      TOOLCHAIN: ${{ github.event.inputs.toolchain || 'aosp' }}
     strategy:
       fail-fast: false
       matrix:
@@ -60,6 +70,7 @@ jobs:
       # Same toolchain as SM-A226B-SukiSU-Ultra-Kernel:
       # AOSP clang-r383902 + AArch64 GCC 4.9 binutils (ci/fetch_toolchain.sh)
       - name: Cache toolchain
+        if: env.TOOLCHAIN == 'aosp'
         id: toolchain-cache
         uses: actions/cache@v4
         with:
@@ -69,8 +80,15 @@ jobs:
           key: toolchain-${{ hashFiles('ci/fetch_toolchain.sh') }}
 
       - name: Fetch toolchain
-        if: steps.toolchain-cache.outputs.cache-hit != 'true'
+        if: env.TOOLCHAIN == 'aosp' && steps.toolchain-cache.outputs.cache-hit != 'true'
         run: bash ci/fetch_toolchain.sh
+
+      - name: Cache Neutron toolchain
+        if: env.TOOLCHAIN == 'neutron'
+        uses: actions/cache@v4
+        with:
+          path: toolchain/neutron_18
+          key: neutron-clang-05012024-${{ runner.os }}
 
       - name: Build for ${{ matrix.model }}
         run: |
@@ -86,12 +104,12 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ExtremeKRNL-Nexus-${{ matrix.model }}
+          name: ExtremeKRNL-Nexus-${{ matrix.model }}-${{ env.TOOLCHAIN }}
           path: build/out/${{ matrix.model }}/zip
 
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log-${{ matrix.model }}
+          name: build-log-${{ matrix.model }}-${{ env.TOOLCHAIN }}
           path: build-${{ matrix.model }}.log

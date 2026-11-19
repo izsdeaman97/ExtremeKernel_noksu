@@ -47,22 +47,55 @@ pushd $(dirname "$0") > /dev/null
 CORES=`cat /proc/cpuinfo | grep -c processor`
 
 # Define toolchain variables
-# Toolchain: same as SM-A226B-SukiSU-Ultra-Kernel (ci/fetch_toolchain.sh)
-#   AOSP clang-r383902 (clang 11.0.1) + AArch64 GCC 4.9 binutils
-CLANG_DIR=$PWD/toolchain/clang/host/linux-x86/clang-r383902
-GCC_DIR=$PWD/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
+# TOOLCHAIN=aosp    (default) same as SM-A226B-SukiSU-Ultra-Kernel:
+#                   AOSP clang-r383902 + AArch64 GCC 4.9 binutils
+# TOOLCHAIN=neutron Neutron clang 18 (original ExtremeKernel toolchain)
+TOOLCHAIN=${TOOLCHAIN:-aosp}
 
-# Check if toolchain exists
-if [ ! -x "$CLANG_DIR/bin/clang" ] || [ ! -x "$GCC_DIR/bin/aarch64-linux-androidkernel-ld" ]; then
-    echo "-----------------------------------------------"
-    echo "Toolchain not found! Downloading..."
-    echo "-----------------------------------------------"
-    bash ci/fetch_toolchain.sh || abort
-fi
+if [[ "$TOOLCHAIN" == "neutron" ]]; then
+    CLANG_DIR=$PWD/toolchain/neutron_18
 
-PATH=$GCC_DIR/bin:$CLANG_DIR/bin:$PATH
+    # Check if toolchain exists
+    if [ ! -f "$CLANG_DIR/bin/clang-18" ]; then
+        echo "-----------------------------------------------"
+        echo "Toolchain not found! Downloading..."
+        echo "-----------------------------------------------"
+        rm -rf $CLANG_DIR
+        mkdir -p $CLANG_DIR
+        pushd toolchain/neutron_18 > /dev/null
+        bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") -S=05012024
+        echo "-----------------------------------------------"
+        echo "Patching toolchain..."
+        echo "-----------------------------------------------"
+        bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") --patch=glibc
+        echo "-----------------------------------------------"
+        echo "Cleaning up..."
+        popd > /dev/null
+    fi
 
-MAKE_ARGS="
+    PATH=$CLANG_DIR/bin:$PATH
+
+    MAKE_ARGS="
+LLVM=1 \
+LLVM_IAS=1 \
+ARCH=arm64 \
+O=out
+"
+else
+    CLANG_DIR=$PWD/toolchain/clang/host/linux-x86/clang-r383902
+    GCC_DIR=$PWD/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
+
+    # Check if toolchain exists
+    if [ ! -x "$CLANG_DIR/bin/clang" ] || [ ! -x "$GCC_DIR/bin/aarch64-linux-androidkernel-ld" ]; then
+        echo "-----------------------------------------------"
+        echo "Toolchain not found! Downloading..."
+        echo "-----------------------------------------------"
+        bash ci/fetch_toolchain.sh || abort
+    fi
+
+    PATH=$GCC_DIR/bin:$CLANG_DIR/bin:$PATH
+
+    MAKE_ARGS="
 LLVM=1 \
 LLVM_IAS=1 \
 CROSS_COMPILE=aarch64-linux-androidkernel- \
@@ -70,6 +103,8 @@ CLANG_TRIPLE=aarch64-linux-gnu- \
 ARCH=arm64 \
 O=out
 "
+fi
+echo "Toolchain: $TOOLCHAIN"
 
 # Define specific variables
 case $MODEL in
