@@ -127,8 +127,11 @@ if [ -z $KSU_OPTION ]; then
     read -p "Include KernelSU (y/N): " KSU_OPTION
 fi
 
-if [[ "$KSU_OPTION" == "y" ]]; then
+if [[ "${KSU_OPTION,,}" == "y" ]]; then
     KSU=ksu.config
+    # SukiSU-Nova builtin@4bec532d: pin the version instead of asking the
+    # GitHub API at build time (offline / rate-limited builds collapse it).
+    MAKE_ARGS="$MAKE_ARGS KSU_VERSION=30007 KSU_VERSION_FULL=v3.0.0-4bec532d@builtin"
 fi
 
 rm -rf build/out/$MODEL

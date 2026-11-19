@@ -15,117 +15,70 @@ on:
         - d2s
         - d2x
         - d2xks
+      ksu:
+        description: "Include SukiSU-Nova (KernelSU)"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      should_build_all: ${{ github.event.inputs.model == 'all' }}
+      models: ${{ steps.matrix.outputs.models }}
     steps:
+      - name: Select models
+        id: matrix
+        run: |
+          MODEL="${{ github.event.inputs.model }}"
+          if [ -z "$MODEL" ] || [ "$MODEL" = "all" ]; then
+            echo 'models=["d1","d1xks","d2s","d2x","d2xks"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "models=[\"$MODEL\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(needs.setup.outputs.models) }}
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libc6-dev-i386 x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig
-      - name: Set should_build_all output
-        run: echo "should_build_all=${{ github.event.inputs.model == 'all' }}" >> $GITHUB_OUTPUT
+          sudo apt-get install -y git-core gnupg flex bison bc build-essential zip unzip curl \
+            zstd cpio lz4 libssl-dev libelf-dev zlib1g-dev libxml2-utils xsltproc fontconfig
 
-  build_d1:
-    needs: setup
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.model == 'd1' || needs.setup.outputs.should_build_all == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
+      - name: Cache Neutron toolchain
+        uses: actions/cache@v4
         with:
-          submodules: 'recursive'
-      - name: Update submodules
+          path: toolchain/neutron_18
+          key: neutron-clang-05012024-${{ runner.os }}
+
+      - name: Build for ${{ matrix.model }}
         run: |
-          git submodule update --init --recursive
-          git submodule update --remote
-      - name: Build for d1
-        run: ./workflows.sh -m d1 -k Y -r N
+          KSU=n
+          if [ "${{ github.event.inputs.ksu }}" != "false" ]; then KSU=y; fi
+          bash ./workflows.sh -m ${{ matrix.model }} -k $KSU -r N 2>&1 | tee build-${{ matrix.model }}.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Show SukiSU-Nova version
+        if: always()
+        run: grep -E "SukiSU-Nova version|KERNEL_TYPE" build-${{ matrix.model }}.log || true
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ExtremeKRNL-Nexus-d1
-          path: build/out/d1/zip
+          name: ExtremeKRNL-Nexus-${{ matrix.model }}
+          path: build/out/${{ matrix.model }}/zip
 
-  build_d1xks:
-    needs: setup
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.model == 'd1xks' || needs.setup.outputs.should_build_all == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-      - name: Update submodules
-        run: |
-          git submodule update --init --recursive
-          git submodule update --remote
-      - name: Build for d1xks
-        run: ./workflows.sh -m d1xks -k Y -r N
-      - name: Upload artifact
+      - name: Upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ExtremeKRNL-Nexus-d1xks
-          path: build/out/d1xks/zip
-
-  build_d2s:
-    needs: setup
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.model == 'd2s' || needs.setup.outputs.should_build_all == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          token: ${{ secrets.FCK_SUBMODULES }}
-      - name: Update submodules
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --force --recursive --remote
-      - name: Build for d2s
-        run: ./workflows.sh -m d2s -k Y -r N
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ExtremeKRNL-Nexus-d2s
-          path: build/out/d2s/zip
-
-  build_d2x:
-    needs: setup
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.model == 'd2x' || needs.setup.outputs.should_build_all == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-      - name: Update submodules
-        run: |
-          git submodule update --init --recursive
-          git submodule update --remote
-      - name: Build for d2x
-        run: ./workflows.sh -m d2x -k Y -r N
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ExtremeKRNL-Nexus-d2x
-          path: build/out/d2x/zip
-
-  build_d2xks:
-    needs: setup
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.model == 'd2xks' || needs.setup.outputs.should_build_all == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-      - name: Update submodules
-        run: |
-          git submodule update --init --recursive
-          git submodule update --remote
-      - name: Build for d2xks
-        run: ./workflows.sh -m d2xks -k Y -r N
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ExtremeKRNL-Nexus-d2xks
-          path: build/out/d2xks/zip
+          name: build-log-${{ matrix.model }}
+          path: build-${{ matrix.model }}.log
