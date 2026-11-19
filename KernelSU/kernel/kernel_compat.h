@@ -116,6 +116,12 @@ long ksu_strncpy_from_user_nofault(char *dst, const void __user *unsafe_addr, lo
     return ret;
 }
 
+/* Some call sites use the upstream name directly; alias it on kernels that
+ * do not provide it (introduced in 5.8). */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0) && !defined(KSU_HAS_STRNCPY_FROM_USER_NOFAULT)
+#define strncpy_from_user_nofault ksu_strncpy_from_user_nofault
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 // https://elixir.bootlin.com/linux/v4.14.336/source/fs/read_write.c#L418
 ssize_t ksu_kernel_read_compat(struct file *p, void *buf, size_t count, loff_t *pos)
@@ -169,6 +175,21 @@ static inline void *ksu_kvmalloc_array(size_t n, size_t size, gfp_t flags)
 #define kvmalloc ksu_kvmalloc
 #define kvmalloc_array ksu_kvmalloc_array
 #define kvfree ksu_kvfree
+#endif
+
+/* kvcalloc was introduced in 4.18; provide it for older kernels. */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+static inline void *ksu_kvcalloc(size_t n, size_t size, gfp_t flags)
+{
+    void *p;
+    if (size && n > ((size_t)-1) / size)
+        return NULL;
+    p = kvmalloc(n * size, flags);
+    if (p)
+        memset(p, 0, n * size);
+    return p;
+}
+#define kvcalloc ksu_kvcalloc
 #endif
 
 // for supercalls.c fd install tw

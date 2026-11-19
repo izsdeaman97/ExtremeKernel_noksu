@@ -1,4 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/* KPM control surface. The runtime bridge (KernelPatch) is only available on
+ * kernel 5.10+; on older kernels this translation unit is intentionally empty.
+ */
+#include <linux/version.h>
+#if defined(CONFIG_KPM) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 /* Both built-in and LKM modes use the same KernelPatch kernel-only bridge.
  * The public extension ioctl and ksu_kpm_cmd layout are unchanged.
  */
@@ -187,3 +192,5 @@ int do_kpm(void __user *arg)
 /* The top-level extension.c registers the KPM extension handler; this
  * file only implements the underlying KPM control surface. */
 
+
+#endif /* CONFIG_KPM && >= 5.10 */
