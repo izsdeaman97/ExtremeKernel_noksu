@@ -86,19 +86,24 @@ else
     GCC_DIR=$PWD/toolchain/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
 
     # Check if toolchain exists
-    if [ ! -x "$CLANG_DIR/bin/clang" ] || [ ! -x "$GCC_DIR/bin/aarch64-linux-androidkernel-ld" ]; then
+    if [ ! -x "$CLANG_DIR/bin/clang" ] || [ ! -x "$GCC_DIR/bin/aarch64-linux-androidkernel-ld" ] || \
+       [ ! -x "$PWD/toolchain/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-ld" ]; then
         echo "-----------------------------------------------"
         echo "Toolchain not found! Downloading..."
         echo "-----------------------------------------------"
         bash ci/fetch_toolchain.sh || abort
     fi
 
-    PATH=$GCC_DIR/bin:$CLANG_DIR/bin:$PATH
+    GCC32_DIR=$PWD/toolchain/gcc/linux-x86/arm/arm-linux-androideabi-4.9
+    PATH=$GCC_DIR/bin:$GCC32_DIR/bin:$CLANG_DIR/bin:$PATH
 
+    # Assemble with GNU as from GCC 4.9 like SM-A226B: the clang 11
+    # integrated assembler is not reliable for arm64 on 4.14.
     MAKE_ARGS="
 LLVM=1 \
-LLVM_IAS=1 \
+LLVM_IAS=0 \
 CROSS_COMPILE=aarch64-linux-androidkernel- \
+CROSS_COMPILE_ARM32=arm-linux-androidkernel- \
 CLANG_TRIPLE=aarch64-linux-gnu- \
 ARCH=arm64 \
 O=out

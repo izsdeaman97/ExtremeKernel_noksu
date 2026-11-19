@@ -8,6 +8,8 @@ TC="$ROOT/toolchain"
 
 CLANG_DIR="$TC/clang/host/linux-x86/clang-r383902"
 GCC_DIR="$TC/gcc/linux-x86/aarch64/aarch64-linux-android-4.9"
+# ARM32 binutils for the compat vDSO (needed when assembling with GNU as)
+GCC32_DIR="$TC/gcc/linux-x86/arm/arm-linux-androideabi-4.9"
 
 if [ ! -x "$CLANG_DIR/bin/clang" ]; then
     echo "[+] downloading clang-r383902"
@@ -31,6 +33,18 @@ if [ ! -x "$GCC_DIR/bin/aarch64-linux-androidkernel-ld" ]; then
     rm -f "$tmp"
 fi
 
+if [ ! -x "$GCC32_DIR/bin/arm-linux-androidkernel-ld" ]; then
+    echo "[+] downloading arm gcc-4.9 binutils"
+    mkdir -p "$TC/gcc/linux-x86/arm"
+    tmp=$(mktemp)
+    curl -fL --retry 3 -o "$tmp" \
+      "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/+archive/refs/heads/android11-release.tar.gz"
+    rm -rf "$GCC32_DIR"; mkdir -p "$GCC32_DIR"
+    tar -xzf "$tmp" -C "$GCC32_DIR"
+    rm -f "$tmp"
+fi
+
 "$CLANG_DIR/bin/clang" --version | head -2
 "$GCC_DIR/bin/aarch64-linux-androidkernel-ld" --version | head -1
+"$GCC32_DIR/bin/arm-linux-androidkernel-ld" --version | head -1
 echo "[+] toolchain ready"
