@@ -47,10 +47,11 @@ pushd $(dirname "$0") > /dev/null
 CORES=`cat /proc/cpuinfo | grep -c processor`
 
 # Define toolchain variables
-# TOOLCHAIN=aosp    (default) same as SM-A226B-SukiSU-Ultra-Kernel:
+# TOOLCHAIN=aosp    same as SM-A226B-SukiSU-Ultra-Kernel:
 #                   AOSP clang-r383902 + AArch64 GCC 4.9 binutils
-# TOOLCHAIN=neutron Neutron clang 18 (original ExtremeKernel toolchain)
-TOOLCHAIN=${TOOLCHAIN:-aosp}
+# TOOLCHAIN=neutron (default) Neutron clang 18, original ExtremeKernel
+#                   toolchain; the only one verified to boot on d2xks
+TOOLCHAIN=${TOOLCHAIN:-neutron}
 
 if [[ "$TOOLCHAIN" == "neutron" ]]; then
     CLANG_DIR=$PWD/toolchain/neutron_18

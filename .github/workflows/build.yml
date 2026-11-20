@@ -27,7 +27,7 @@ on:
       toolchain:
         description: "aosp = clang-r383902 + GCC 4.9 (SM-A226B), neutron = Neutron clang 18 (original)"
         required: false
-        default: "aosp"
+        default: "neutron"
         type: choice
         options:
         - aosp
@@ -55,7 +55,7 @@ jobs:
     # images no longer ship; pin the runner image.
     runs-on: ubuntu-24.04
     env:
-      TOOLCHAIN: ${{ github.event.inputs.toolchain || 'aosp' }}
+      TOOLCHAIN: ${{ github.event.inputs.toolchain || 'neutron' }}
     strategy:
       fail-fast: false
       matrix:
