@@ -135,3 +135,14 @@ config SECURITY_SELINUX_QUERY_FILTER
 	  contexts added by Magisk / KernelSU / LSPosed, and freeze the
 	  DirtySepolicy status-page seqno to its clean value. Never applies
 	  to root / system UIDs, so the policy manager keeps working.
+
+config SECURITY_SELINUX_HOOK_KPM
+	bool "Built-in selinux_hook KPM port (hide dirty SELinux policy)"
+	depends on SECURITY_SELINUX && KALLSYMS_ALL
+	default n
+	help
+	  Compile the selinux_hook 1.1.7 logic (clean policy snapshot,
+	  /sys/fs/selinux/policy read hiding, clean AV decisions and the
+	  DirtySepolicy filters) directly into the kernel, instead of
+	  loading it as a KernelPatch module. Resolves everything through
+	  kallsyms at late_initcall, so it needs KALLSYMS_ALL.

@@ -5,6 +5,7 @@
 
 ccflags-y := -I$(srctree)/security/selinux -I$(srctree)/security/selinux/include
 
+obj-$(CONFIG_SECURITY_SELINUX_HOOK_KPM) += selinux_hook_kpm/
 
 obj-$(CONFIG_SECURITY_SELINUX) := selinux.o
 
