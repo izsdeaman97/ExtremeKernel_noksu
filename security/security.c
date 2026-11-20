@@ -19,6 +19,9 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/lsm_hooks.h>
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+#include <linux/selinux_hook_kpm.h>
+#endif
 #include <linux/integrity.h>
 #include <linux/ima.h>
 #include <linux/evm.h>
@@ -1320,10 +1323,39 @@ int security_getprocattr(struct task_struct *p, char *name, char **value)
 	return call_int_hook(getprocattr, -EINVAL, p, name, value);
 }
 
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static int __kp_security_setprocattr(const char *name, void *value,
+				    size_t size);
+int security_setprocattr(const char *name, void *value, size_t size)
+{
+	hook_fargs4_t a;
+	int ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)name;
+	a.arg1 = (uint64_t)value;
+	a.arg2 = (uint64_t)size;
+	kp_hook_before((void *)security_setprocattr, &a);
+	if (a.skip_origin)
+		return (int)a.ret;
+	ret = __kp_security_setprocattr((const char *)a.arg0,
+					(void *)a.arg1, (size_t)a.arg2);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)security_setprocattr, &a);
+	return (int)a.ret;
+}
+
+static int __kp_security_setprocattr(const char *name, void *value,
+				    size_t size)
+{
+	return call_int_hook(setprocattr, -EINVAL, name, value, size);
+}
+#else
 int security_setprocattr(const char *name, void *value, size_t size)
 {
 	return call_int_hook(setprocattr, -EINVAL, name, value, size);
 }
+#endif
 
 int security_netlink_send(struct sock *sk, struct sk_buff *skb)
 {

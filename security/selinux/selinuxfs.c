@@ -41,6 +41,9 @@
 #include "security.h"
 #include "objsec.h"
 #include "selinux_query_filter.h"
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+#include <linux/selinux_hook_kpm.h>
+#endif
 #include "conditional.h"
 
 enum sel_inos {
@@ -238,8 +241,37 @@ static int sel_open_handle_status(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static ssize_t __kp_sel_read_handle_status(struct file *filp, char __user *buf,
+					   size_t count, loff_t *ppos);
 static ssize_t sel_read_handle_status(struct file *filp, char __user *buf,
 				      size_t count, loff_t *ppos)
+{
+	hook_fargs4_t a;
+	ssize_t ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)filp;
+	a.arg1 = (uint64_t)buf;
+	a.arg2 = (uint64_t)count;
+	a.arg3 = (uint64_t)ppos;
+	kp_hook_before((void *)sel_read_handle_status, &a);
+	if (a.skip_origin)
+		return (ssize_t)a.ret;
+	ret = __kp_sel_read_handle_status((struct file *)a.arg0,
+					  (char __user *)a.arg1,
+					  (size_t)a.arg2, (loff_t *)a.arg3);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)sel_read_handle_status, &a);
+	return (ssize_t)a.ret;
+}
+
+static ssize_t __kp_sel_read_handle_status(struct file *filp, char __user *buf,
+					   size_t count, loff_t *ppos)
+#else
+static ssize_t sel_read_handle_status(struct file *filp, char __user *buf,
+				      size_t count, loff_t *ppos)
+#endif
 {
 	struct page    *status = filp->private_data;
 
@@ -250,8 +282,34 @@ static ssize_t sel_read_handle_status(struct file *filp, char __user *buf,
 				       sizeof(struct selinux_kernel_status));
 }
 
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static int __kp_sel_mmap_handle_status(struct file *filp,
+				       struct vm_area_struct *vma);
 static int sel_mmap_handle_status(struct file *filp,
 				  struct vm_area_struct *vma)
+{
+	hook_fargs4_t a;
+	int ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)filp;
+	a.arg1 = (uint64_t)vma;
+	kp_hook_before((void *)sel_mmap_handle_status, &a);
+	if (a.skip_origin)
+		return (int)a.ret;
+	ret = __kp_sel_mmap_handle_status((struct file *)a.arg0,
+					  (struct vm_area_struct *)a.arg1);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)sel_mmap_handle_status, &a);
+	return (int)a.ret;
+}
+
+static int __kp_sel_mmap_handle_status(struct file *filp,
+				       struct vm_area_struct *vma)
+#else
+static int sel_mmap_handle_status(struct file *filp,
+				  struct vm_area_struct *vma)
+#endif
 {
 	struct page    *status = filp->private_data;
 	unsigned long	size = vma->vm_end - vma->vm_start;
@@ -599,7 +657,32 @@ static const struct file_operations sel_load_ops = {
 	.llseek		= generic_file_llseek,
 };
 
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static ssize_t __kp_sel_write_context(struct file *file, char *buf,
+				      size_t size);
 static ssize_t sel_write_context(struct file *file, char *buf, size_t size)
+{
+	hook_fargs4_t a;
+	ssize_t ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)file;
+	a.arg1 = (uint64_t)buf;
+	a.arg2 = (uint64_t)size;
+	kp_hook_before((void *)sel_write_context, &a);
+	if (a.skip_origin)
+		return (ssize_t)a.ret;
+	ret = __kp_sel_write_context((struct file *)a.arg0, (char *)a.arg1,
+				     (size_t)a.arg2);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)sel_write_context, &a);
+	return (ssize_t)a.ret;
+}
+
+static ssize_t __kp_sel_write_context(struct file *file, char *buf, size_t size)
+#else
+static ssize_t sel_write_context(struct file *file, char *buf, size_t size)
+#endif
 {
 	struct selinux_fs_info *fsi = file_inode(file)->i_sb->s_fs_info;
 	struct selinux_state *state = fsi->state;
@@ -824,7 +907,31 @@ static const struct file_operations transaction_ops = {
  * and the length returned.  Otherwise return 0 or and -error.
  */
 
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static ssize_t __kp_sel_write_access(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_access(struct file *file, char *buf, size_t size)
+{
+	hook_fargs4_t a;
+	ssize_t ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)file;
+	a.arg1 = (uint64_t)buf;
+	a.arg2 = (uint64_t)size;
+	kp_hook_before((void *)sel_write_access, &a);
+	if (a.skip_origin)
+		return (ssize_t)a.ret;
+	ret = __kp_sel_write_access((struct file *)a.arg0, (char *)a.arg1,
+				    (size_t)a.arg2);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)sel_write_access, &a);
+	return (ssize_t)a.ret;
+}
+
+static ssize_t __kp_sel_write_access(struct file *file, char *buf, size_t size)
+#else
+static ssize_t sel_write_access(struct file *file, char *buf, size_t size)
+#endif
 {
 	struct selinux_fs_info *fsi = file_inode(file)->i_sb->s_fs_info;
 	struct selinux_state *state = fsi->state;

@@ -97,6 +97,9 @@
 #include "netlabel.h"
 #include "audit.h"
 #include "selinux_query_filter.h"
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+#include <linux/selinux_hook_kpm.h>
+#endif
 #include "avc_ss.h"
 
 struct selinux_state selinux_state;
@@ -6303,7 +6306,33 @@ bad:
 	return error;
 }
 
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static int __kp_selinux_setprocattr(const char *name, void *value,
+				   size_t size);
 static int selinux_setprocattr(const char *name, void *value, size_t size)
+{
+	hook_fargs4_t a;
+	int ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)name;
+	a.arg1 = (uint64_t)value;
+	a.arg2 = (uint64_t)size;
+	kp_hook_before((void *)selinux_setprocattr, &a);
+	if (a.skip_origin)
+		return (int)a.ret;
+	ret = __kp_selinux_setprocattr((const char *)a.arg0, (void *)a.arg1,
+				       (size_t)a.arg2);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)selinux_setprocattr, &a);
+	return (int)a.ret;
+}
+
+static int __kp_selinux_setprocattr(const char *name, void *value,
+				   size_t size)
+#else
+static int selinux_setprocattr(const char *name, void *value, size_t size)
+#endif
 {
 	struct task_security_struct *tsec;
 	struct cred *new;
@@ -7150,7 +7179,24 @@ static void delayed_superblock_init(struct super_block *sb, void *unused)
 	superblock_doinit(sb, NULL);
 }
 
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static void __kp_selinux_complete_init(void);
 void selinux_complete_init(void)
+{
+	hook_fargs0_t a;
+
+	memset(&a, 0, sizeof(a));
+	kp_hook_before((void *)selinux_complete_init, &a);
+	if (a.skip_origin)
+		return;
+	__kp_selinux_complete_init();
+	kp_hook_after((void *)selinux_complete_init, &a);
+}
+
+static void __kp_selinux_complete_init(void)
+#else
+void selinux_complete_init(void)
+#endif
 {
 	printk(KERN_DEBUG "SELinux:  Completing initialization.\n");
 

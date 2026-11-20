@@ -52,6 +52,9 @@
 #include <linux/selinux.h>
 #include <linux/flex_array.h>
 #include <linux/vmalloc.h>
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+#include <linux/selinux_hook_kpm.h>
+#endif
 #ifdef CONFIG_UH
 #include <linux/uh.h>
 #ifdef CONFIG_KDP
@@ -622,12 +625,55 @@ void services_compute_xperms_drivers(
  * Compute access vectors and extended permissions based on a context
  * structure pair for the permissions in a particular class.
  */
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static void __kp_context_struct_compute_av(struct policydb *policydb,
+					   struct context *scontext,
+					   struct context *tcontext,
+					   u16 tclass,
+					   struct av_decision *avd,
+					   struct extended_perms *xperms);
 static void context_struct_compute_av(struct policydb *policydb,
 				      struct context *scontext,
 				      struct context *tcontext,
 				      u16 tclass,
 				      struct av_decision *avd,
 				      struct extended_perms *xperms)
+{
+	hook_fargs8_t a;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)policydb;
+	a.arg1 = (uint64_t)scontext;
+	a.arg2 = (uint64_t)tcontext;
+	a.arg3 = (uint64_t)tclass;
+	a.arg4 = (uint64_t)avd;
+	a.arg5 = (uint64_t)xperms;
+	kp_hook_before((void *)context_struct_compute_av, &a);
+	if (a.skip_origin)
+		return;
+	__kp_context_struct_compute_av((struct policydb *)a.arg0,
+				       (struct context *)a.arg1,
+				       (struct context *)a.arg2,
+				       (u16)a.arg3,
+				       (struct av_decision *)a.arg4,
+				       (struct extended_perms *)a.arg5);
+	kp_hook_after((void *)context_struct_compute_av, &a);
+}
+
+static void __kp_context_struct_compute_av(struct policydb *policydb,
+					   struct context *scontext,
+					   struct context *tcontext,
+					   u16 tclass,
+					   struct av_decision *avd,
+					   struct extended_perms *xperms)
+#else
+static void context_struct_compute_av(struct policydb *policydb,
+				      struct context *scontext,
+				      struct context *tcontext,
+				      u16 tclass,
+				      struct av_decision *avd,
+				      struct extended_perms *xperms)
+#endif
 {
 	struct constraint_node *constraint;
 	struct role_allow *ra;
@@ -1386,11 +1432,52 @@ int security_sid_to_context_force(struct selinux_state *state, u32 sid,
 /*
  * Caveat:  Mutates scontext.
  */
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static int __kp_string_to_context_struct(struct policydb *pol,
+					 struct sidtab *sidtabp,
+					 char *scontext,
+					 struct context *ctx,
+					 u32 def_sid);
 static int string_to_context_struct(struct policydb *pol,
 				    struct sidtab *sidtabp,
 				    char *scontext,
 				    struct context *ctx,
 				    u32 def_sid)
+{
+	hook_fargs8_t a;
+	int ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)pol;
+	a.arg1 = (uint64_t)sidtabp;
+	a.arg2 = (uint64_t)scontext;
+	a.arg3 = (uint64_t)ctx;
+	a.arg4 = (uint64_t)def_sid;
+	kp_hook_before((void *)string_to_context_struct, &a);
+	if (a.skip_origin)
+		return (int)a.ret;
+	ret = __kp_string_to_context_struct((struct policydb *)a.arg0,
+					    (struct sidtab *)a.arg1,
+					    (char *)a.arg2,
+					    (struct context *)a.arg3,
+					    (u32)a.arg4);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)string_to_context_struct, &a);
+	return (int)a.ret;
+}
+
+static int __kp_string_to_context_struct(struct policydb *pol,
+					 struct sidtab *sidtabp,
+					 char *scontext,
+					 struct context *ctx,
+					 u32 def_sid)
+#else
+static int string_to_context_struct(struct policydb *pol,
+				    struct sidtab *sidtabp,
+				    char *scontext,
+				    struct context *ctx,
+				    u32 def_sid)
+#endif
 {
 	struct role_datum *role;
 	struct type_datum *typdatum;
@@ -3741,8 +3828,35 @@ out:
  * @len: length of data in bytes
  *
  */
+#ifdef CONFIG_SECURITY_SELINUX_HOOK_KPM
+static int __kp_security_read_policy(struct selinux_state *state,
+				     void **data, size_t *len);
 int security_read_policy(struct selinux_state *state,
 			 void **data, size_t *len)
+{
+	hook_fargs4_t a;
+	int ret;
+
+	memset(&a, 0, sizeof(a));
+	a.arg0 = (uint64_t)state;
+	a.arg1 = (uint64_t)data;
+	a.arg2 = (uint64_t)len;
+	kp_hook_before((void *)security_read_policy, &a);
+	if (a.skip_origin)
+		return (int)a.ret;
+	ret = __kp_security_read_policy((struct selinux_state *)a.arg0,
+					(void **)a.arg1, (size_t *)a.arg2);
+	a.ret = (uint64_t)ret;
+	kp_hook_after((void *)security_read_policy, &a);
+	return (int)a.ret;
+}
+
+static int __kp_security_read_policy(struct selinux_state *state,
+				     void **data, size_t *len)
+#else
+int security_read_policy(struct selinux_state *state,
+			 void **data, size_t *len)
+#endif
 {
 	struct policydb *policydb = &state->ss->policydb;
 	int rc;
