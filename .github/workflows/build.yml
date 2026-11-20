@@ -51,7 +51,9 @@ jobs:
 
   build:
     needs: setup
-    runs-on: ubuntu-latest
+    # Neutron's ld.lld links against libxml2.so.2, which newer Ubuntu
+    # images no longer ship; pin the runner image.
+    runs-on: ubuntu-24.04
     env:
       TOOLCHAIN: ${{ github.event.inputs.toolchain || 'aosp' }}
     strategy:
@@ -65,7 +67,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git-core gnupg flex bison bc build-essential zip unzip curl \
-            zstd cpio lz4 libssl-dev libelf-dev zlib1g-dev libxml2-utils xsltproc fontconfig
+            zstd cpio lz4 libssl-dev libelf-dev zlib1g-dev libxml2 libxml2-utils xsltproc fontconfig
 
       # Same toolchain as SM-A226B-SukiSU-Ultra-Kernel:
       # AOSP clang-r383902 + AArch64 GCC 4.9 binutils (ci/fetch_toolchain.sh)
