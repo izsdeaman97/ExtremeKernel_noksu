@@ -55,7 +55,11 @@ struct page *selinux_kernel_status_page(struct selinux_state *state)
 			status = page_address(state->ss->status_page);
 
 			status->version = SELINUX_KERNEL_STATUS_VERSION;
+#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
+			status->sequence = 4;
+#else
 			status->sequence = 0;
+#endif
 			status->enforcing = enforcing_enabled(state);
 
 			/*
@@ -64,7 +68,11 @@ struct page *selinux_kernel_status_page(struct selinux_state *state)
 			 * although it may not be 1, but never zero.
 			 * So, application can know it was updated.
 			 */
+#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
+			status->policyload = 1;
+#else
 			status->policyload = 0;
+#endif
 			status->deny_unknown =
 				!security_get_allow_unknown(state);
 		}
@@ -89,6 +97,11 @@ void selinux_status_update_setenforce(struct selinux_state *state,
 	if (state->ss->status_page) {
 		status = page_address(state->ss->status_page);
 
+#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
+		status->enforcing = enforcing;
+		/* keep the clean-device sequence value */
+		status->sequence = 4;
+#else
 		status->sequence++;
 		smp_wmb();
 
@@ -96,6 +109,7 @@ void selinux_status_update_setenforce(struct selinux_state *state,
 
 		smp_wmb();
 		status->sequence++;
+#endif
 	}
 	mutex_unlock(&state->ss->status_lock);
 }
@@ -115,6 +129,12 @@ void selinux_status_update_policyload(struct selinux_state *state,
 	if (state->ss->status_page) {
 		status = page_address(state->ss->status_page);
 
+#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
+		status->policyload = 1;
+		status->deny_unknown = !security_get_allow_unknown(state);
+		/* keep the clean-device sequence/policyload values */
+		status->sequence = 4;
+#else
 		status->sequence++;
 		smp_wmb();
 
@@ -123,6 +143,7 @@ void selinux_status_update_policyload(struct selinux_state *state,
 
 		smp_wmb();
 		status->sequence++;
+#endif
 	}
 	mutex_unlock(&state->ss->status_lock);
 }

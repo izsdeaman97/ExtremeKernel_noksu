@@ -40,6 +40,7 @@
 #include "avc_ss.h"
 #include "security.h"
 #include "objsec.h"
+#include "selinux_query_filter.h"
 #include "conditional.h"
 
 enum sel_inos {
@@ -606,6 +607,11 @@ static ssize_t sel_write_context(struct file *file, char *buf, size_t size)
 	u32 sid, len;
 	ssize_t length;
 
+#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
+	if (selinux_query_filter_context(buf, size))
+		return -EINVAL;
+#endif
+
 	length = avc_has_perm(&selinux_state,
 			      current_sid(), SECINITSID_SECURITY,
 			      SECCLASS_SECURITY, SECURITY__CHECK_CONTEXT, NULL);
@@ -827,6 +833,15 @@ static ssize_t sel_write_access(struct file *file, char *buf, size_t size)
 	u16 tclass;
 	struct av_decision avd;
 	ssize_t length;
+
+#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
+	{
+		int qf = selinux_query_filter_access(buf, size);
+
+		if (qf)
+			return qf;
+	}
+#endif
 
 	length = avc_has_perm(&selinux_state,
 			      current_sid(), SECINITSID_SECURITY,

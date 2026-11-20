@@ -96,6 +96,7 @@
 #include "xfrm.h"
 #include "netlabel.h"
 #include "audit.h"
+#include "selinux_query_filter.h"
 #include "avc_ss.h"
 
 struct selinux_state selinux_state;
@@ -6309,6 +6310,11 @@ static int selinux_setprocattr(const char *name, void *value, size_t size)
 	u32 mysid = current_sid(), sid = 0, ptsid;
 	int error;
 	char *str = value;
+
+#ifdef CONFIG_SECURITY_SELINUX_QUERY_FILTER
+	if (selinux_query_filter_setprocattr(name, value, size))
+		return -EINVAL;
+#endif
 
 	/*
 	 * Basic control over ability to set these attributes at all.
