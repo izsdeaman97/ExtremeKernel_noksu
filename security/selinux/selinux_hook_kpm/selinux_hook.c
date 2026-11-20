@@ -60,24 +60,7 @@ KPM_DESCRIPTION("Audit and reject Magisk /sys/fs/selinux/access probes");
 #define APATCH_MANAGER_UID ((uid_t)-1)
 #endif
 
-/*
- * Per-event tracing (CLEAN/AUDIT/STATUS on every app spawn and policy read)
- * is far too chatty for a production device: it floods the kernel log ring
- * and costs CPU on hot SELinux paths. Default it off with no_printk (the
- * format string is still type-checked, so nothing bit-rots). Set
- * SELINUX_HOOK_VERBOSE to 1 to get the full trace back for debugging.
- * The meaningful one-shot events (symbol resolution, clean-policy snapshot,
- * and the DIRTYSEPOLICY hide/deny actions that actually hide something) use
- * pr_info directly and are unaffected.
- */
-#ifndef SELINUX_HOOK_VERBOSE
-#define SELINUX_HOOK_VERBOSE 0
-#endif
-#if SELINUX_HOOK_VERBOSE
 #define selinux_hook_dbg(fmt, ...) pr_info(fmt, ##__VA_ARGS__)
-#else
-#define selinux_hook_dbg(fmt, ...) no_printk(fmt, ##__VA_ARGS__)
-#endif
 
 static void *g_funcs[16];
 static int g_hooks;
@@ -3632,7 +3615,7 @@ static bool filter_procattr_current(const char *hook, const char *lsm,
 
         n = READ_ONCE(g_procattr_current_count) + 1;
         WRITE_ONCE(g_procattr_current_count, n);
-        selinux_hook_dbg("[selinux_hook] AUDIT /proc/self/attr/current 4.9 #%u hook=%s lsm=%s uid=%d comm=%s name_ptr=%px value=%px size=%zu sample_len=%zu manager=%d action=%s forced_ret=%d query=\"%s\"\n",
+        pr_info("[selinux_hook] AUDIT /proc/self/attr/current 4.9 #%u hook=%s lsm=%s uid=%d comm=%s name_ptr=%px value=%px size=%zu sample_len=%zu manager=%d action=%s forced_ret=%d query=\"%s\"\n",
                 n, hook ?: "?", lsm ?: "-", uid, current_comm(), name, value, size,
                 sample_len, manager, blocked ? "block" : "pass", blocked ? -EINVAL : 0,
                 sample);
@@ -3659,7 +3642,7 @@ static bool filter_procattr_current(const char *hook, const char *lsm,
     n = READ_ONCE(g_procattr_current_count) + 1;
     WRITE_ONCE(g_procattr_current_count, n);
 
-    selinux_hook_dbg("[selinux_hook] AUDIT /proc/self/attr/current #%u hook=%s lsm=%s uid=%d comm=%s name_ptr=%px value=%px size=%zu sample_len=%zu manager=%d clean_checked=%d clean_ret=%d clean_sid=%u clean_policydb=%px action=%s forced_ret=%d query=\"%s\"\n",
+    pr_info("[selinux_hook] AUDIT /proc/self/attr/current #%u hook=%s lsm=%s uid=%d comm=%s name_ptr=%px value=%px size=%zu sample_len=%zu manager=%d clean_checked=%d clean_ret=%d clean_sid=%u clean_policydb=%px action=%s forced_ret=%d query=\"%s\"\n",
             n, hook ?: "?", lsm ?: "-", uid, current_comm(), name, value, size,
             sample_len, manager, clean_checked,
             clean_ret, clean_sid, READ_ONCE(g_clean_policydb),
