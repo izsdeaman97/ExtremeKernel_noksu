@@ -2,6 +2,8 @@
 
 > Một trang nắm toàn bộ: repo là gì, gồm những gì, build thế nào, chạy ra sao,
 > và chỗ nào không được đụng. Dành cho người tiếp nhận bảo trì.
+>
+> 🌐 English: [REPO-MASTER.en.md](REPO-MASTER.en.md)
 
 Cập nhật: 2026-11-21 · Nhánh phát triển: `ccr-48d3cc47-snwzwj`
 
