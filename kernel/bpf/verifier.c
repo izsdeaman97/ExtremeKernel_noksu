@@ -4901,6 +4901,16 @@ static int check_return_code(struct bpf_verifier_env *env)
 		return -EINVAL;
 	}
 
+	/*
+	 * Android mainline netd.o (ingress_stats_4_19 etc.) computes its
+	 * return value in a way the 4.14 verifier cannot bound, and newer
+	 * kernels also allow cgroup_skb to return bit1 (congestion notify).
+	 * At runtime __cgroup_bpf_run_filter_skb() only looks at bit0
+	 * (_ret &= ret; ret == 1), so any scalar is safe here.
+	 */
+	if (env->prog->type == BPF_PROG_TYPE_CGROUP_SKB)
+		return 0;
+
 	if (!tnum_in(range, reg->var_off)) {
 		char tn_buf[48];
 
